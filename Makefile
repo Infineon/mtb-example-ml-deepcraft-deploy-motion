@@ -7,7 +7,7 @@
 #
 ################################################################################
 # \copyright
-# Copyright 2024, Cypress Semiconductor Corporation (an Infineon company)
+# Copyright 2024-2025, Cypress Semiconductor Corporation (an Infineon company)
 # SPDX-License-Identifier: Apache-2.0
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-################################################################################
 
+################################################################################
 
 ################################################################################
 # Basic Configuration
@@ -38,21 +38,19 @@ MTB_TYPE=COMBINED
 
 # Target board/hardware (BSP).
 # To change the target, it is recommended to use the Library manager
-# ('make modlibs' from command line), which will also update Eclipse IDE launch
-# configurations. If TARGET is manually edited, ensure TARGET_<BSP>.mtb with a
-# valid URL exists in the application, run 'make getlibs' to fetch BSP contents
-# and update or regenerate launch configurations for your IDE.
-TARGET=CY8CKIT-062S2-43012
+# ('make library-manager' from command line), which will also update Eclipse IDE launch
+# configurations.
+TARGET=CY8CKIT-062S2-AI
 
 # Name of application (used to derive name of final linked file).
 #
 # If APPNAME is edited, ensure to update or regenerate launch
 # configurations for your IDE.
-APPNAME=mtb-example-ml-imagimob-deploy
+APPNAME=mtb-example-ml-deepcraft-deploy-motion
 
 # Name of toolchain to use. Options include:
 #
-# GCC_ARM -- GCC provided with ModusToolbox IDE
+# GCC_ARM -- GCC provided with ModusToolbox software
 # ARM     -- ARM Compiler (must be installed separately)
 # IAR     -- IAR Compiler (must be installed separately)
 #
@@ -72,6 +70,8 @@ CONFIG=Debug
 # If set to "true" or "1", display full command-lines when building.
 VERBOSE=
 
+# Only GCC_ARM toolchain is supported in this version of the code example
+MTB_SUPPORTED_TOOLCHAINS?=GCC_ARM
 
 ################################################################################
 # Advanced Configuration
@@ -87,7 +87,7 @@ VERBOSE=
 # ... then code in directories named COMPONENT_foo and COMPONENT_bar will be
 # added to the build
 #
-COMPONENTS=
+COMPONENTS=ML_TFLM CMSIS_DSP ML_FLOAT32
 
 # Like COMPONENTS, but disable optional code that was enabled by default.
 DISABLE_COMPONENTS=
@@ -102,52 +102,11 @@ SOURCES=
 # directories (without a leading -I).
 INCLUDES=
 
-DEFINES=CY_RETARGET_IO_CONVERT_LF_TO_CRLF
-
-ifeq (APP_CY8CKIT-062S2-AI, $(TARGET))
-DEFINES+=AI_KIT
-else
 # Add additional defines to the build process (without a leading -D).
-# This library nativly supports being used with one of three Arduino
-# compatable shield boards. To change what shield is targeted, change
-# the define below. Supported values are:
-# TFT_SHIELD              -- Using the 028-TFT shield
-# EPD_SHIELD		      -- Using the 028-EPD shield
-# SENSE_SHIELDv1            -- Using the 028-SENSE shield rev** or rev*A
-# SENSE_SHIELDv2         -- Using the 028-SENSE shield rev*B or later
-DEFINES+=SENSE_SHIELDv1
-endif
-
-# Exclude redundant files based on shield selection
-ifneq (,$(findstring TFT_SHIELD,$(DEFINES)))
-CY_IGNORE+= $(SEARCH_CY8CKIT-028-EPD) $(SEARCH_CY8CKIT-028-SENSE) \
-		$(SEARCH_sensor-motion-bmi270) $(SEARCH_sensor-orientation-bmx160) \
-        $(SEARCH_BMI270_SensorAPI) $(SEARCH_BMM150-Sensor-API)
-endif
-ifneq (,$(findstring EPD_SHIELD,$(DEFINES)))
-CY_IGNORE+= $(SEARCH_CY8CKIT-028-SENSE) $(SEARCH_CY8CKIT-028-TFT) \
-		$(SEARCH_sensor-motion-bmi270) $(SEARCH_sensor-orientation-bmx160) \
-        $(SEARCH_BMI270_SensorAPI) $(SEARCH_BMM150-Sensor-API)
-endif
-ifneq (,$(findstring SENSE_SHIELDv1,$(DEFINES)))
-DEFINES+=BMI160_CHIP_ID=UINT8_C\(0xD8\)
-CY_IGNORE+= $(SEARCH_CY8CKIT-028-EPD) $(SEARCH_CY8CKIT-028-TFT) \
-		$(SEARCH_sensor-motion-bmi270) $(SEARCH_sensor-motion-bmi160) \
-        $(SEARCH_BMI270_SensorAPI)
-endif
-ifneq (,$(findstring SENSE_SHIELD_v2,$(DEFINES)))
-CY_IGNORE+= $(SEARCH_CY8CKIT-028-EPD) $(SEARCH_CY8CKIT-028-TFT) \
-		$(SEARCH_sensor-motion-bmi270) $(SEARCH_sensor-orientation-bmx160) \
-        $(SEARCH_BMI270_SensorAPI) $(SEARCH_BMM150-Sensor-API)
-endif
-ifneq (,$(findstring AI_KIT,$(DEFINES)))
-CY_IGNORE+= $(SEARCH_CY8CKIT-028-EPD) $(SEARCH_CY8CKIT-028-SENSE) $(SEARCH_CY8CKIT-028-TFT) \
-		$(SEARCH_sensor-motion-bmi160) $(SEARCH_sensor-orientation-bmx160) \
-        $(SEARCH_BMI160_driver) $(SEARCH_BMM150-Sensor-API)
-endif
+DEFINES=ARM_MATH_DSP ARM_MATH_LOOPUNROLL TF_LITE_STATIC_MEMORY
 
 # Select softfp or hardfp floating point. Default is softfp.
-VFP_SELECT=
+VFP_SELECT=hardfp
 
 # Additional / custom C compiler flags.
 #
@@ -177,10 +136,7 @@ LDLIBS=
 LINKER_SCRIPT=
 
 # Custom pre-build commands to run.
-# Fixup the Bosh BMI160 driver to allow it to also work with the BMX160 chip id
-ifneq (AI_KIT, $(DEFINES))
-PREBUILD+=$(SEARCH_sensor-orientation-bmx160)/bmx160_fix.bash "$(SEARCH_BMI160_driver)/bmi160_defs.h"
-endif
+PREBUILD=
 
 # Custom post-build commands to run.
 POSTBUILD=
@@ -208,14 +164,13 @@ CY_GETLIBS_SHARED_PATH=../
 #
 CY_GETLIBS_SHARED_NAME=mtb_shared
 
-# Absolute path to the compiler's "bin" directory.
-#
-# The default depends on the selected TOOLCHAIN (GCC_ARM uses the ModusToolbox
-# IDE provided compiler by default).
-CY_COMPILER_PATH=
+# Absolute path to the compiler's "bin" directory. The variable name depends on the
+# toolchain used for the build. Refer to the ModusToolbox user guide to get the correct
+# variable name for the toolchain used in your build.
+CY_COMPILER_GCC_ARM_DIR=
 
 
-# Locate ModusToolbox IDE helper tools folders in default installation
+# Locate ModusToolbox helper tools folders in default installation
 # locations for Windows, Linux, and macOS.
 CY_WIN_HOME=$(subst \,/,$(USERPROFILE))
 CY_TOOLS_PATHS ?= $(wildcard \
@@ -223,7 +178,7 @@ CY_TOOLS_PATHS ?= $(wildcard \
     $(HOME)/ModusToolbox/tools_* \
     /Applications/ModusToolbox/tools_*)
 
-# If you install ModusToolbox IDE in a custom location, add the path to its
+# If you install ModusToolbox software in a custom location, add the path to its
 # "tools_X.Y" folder (where X and Y are the version number of the tools
 # folder). Make sure you use forward slashes.
 CY_TOOLS_PATHS+=
